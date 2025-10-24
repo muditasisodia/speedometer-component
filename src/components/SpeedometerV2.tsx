@@ -36,8 +36,9 @@ export default function SpeedometerV2({
   const height = 180;
   const centerX = width / 2;
   const centerY = height - 24; // padding for labels and bottom
-  const radius = Math.min(centerX, centerY) - 10;
-  const trackStroke = 14; // stroke width of the arc paths
+  const trackStroke = 14 * 1.5; // thicker arc paths (1.5x), grows inward
+  const outerRadius = Math.min(centerX, centerY) - 10; // keep outer edge fixed
+  const radius = outerRadius - trackStroke / 2; // centerline shifted inward so thickness adds inside
   // White backdrop radius (reduced by 20px to reveal more needle)
   const innerFillRadius = Math.max(0, radius - trackStroke / 2 - 2 - 20);
 
