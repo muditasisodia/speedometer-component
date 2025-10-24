@@ -180,6 +180,7 @@ export default function SpeedometerV2({
   const needleLength = radius + trackStroke / 2 + needleOvershoot; // extend past the arc edge
 
   const gradientId = useId();
+  const textGradientId = useId();
 
   const percentText = `${Math.round(progressPercent)}%`;
   const mainLabel = label ?? (type === "pro" ? "Most Pro users" : "Your score");
@@ -197,8 +198,27 @@ export default function SpeedometerV2({
             x2={endX}
             y2={endY}
           >
-            <stop offset="0%" stopColor={palette.gradStart} />
-            <stop offset="100%" stopColor={palette.gradEnd} />
+            {type === "free" ? (
+              <>
+                {/* Approximation of updated conic gradient across the semi-arc */}
+                <stop offset="0%" stopColor="#F1FAFF" />
+                <stop offset="50%" stopColor="#00B3F4" />
+                <stop offset="100%" stopColor="#2944EF" />
+              </>
+            ) : (
+              <>
+                {/* Pro gradient: #30B7A4 (100%) -> #006166 (100%) -> #30B7A4 (0%) */}
+                <stop offset="0%" stopColor="#D0EEEA" />
+                <stop offset="60%" stopColor="#30B7A4" />
+                <stop offset="100%" stopColor="#006166" />
+              </>
+            )}
+          </linearGradient>
+          {/* Vertical gradient for big percentage text (black to gray) */}
+          <linearGradient id={textGradientId} x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#000000" />
+            <stop offset="86.36%" stopColor="#808080" />
+            <stop offset="100%" stopColor="#808080" />
           </linearGradient>
         </defs>
 
@@ -266,20 +286,35 @@ export default function SpeedometerV2({
           y={centerY - radius * 0.35}
           textAnchor="middle"
           dominantBaseline="central"
-          fill={palette.text}
-          style={{ fontSize: 38, fontWeight: 700, letterSpacing: -0.5 }}
+          fill={`url(#${textGradientId})`}
+          style={{
+            fontVariantNumeric: "lining-nums tabular-nums",
+            fontFamily: "Inter",
+            fontSize: "2.75rem",
+            fontStyle: "normal",
+            fontWeight: 500,
+            lineHeight: "2.75rem",
+          }}
         >
-          {percentText}
+          <tspan>{percentText.replace("%", "")}</tspan>
+          <tspan fontSize="1.1rem" dx="4" alignmentBaseline="central" dominantBaseline="central">%</tspan>
         </text>
 
         {/* Label(s) below the number */}
         <text
           x={centerX}
-          y={centerY - radius * 0.15}
+          y={centerY - radius * 0.15 + 8}
           textAnchor="middle"
           dominantBaseline="central"
-          fill={palette.subText}
-          style={{ fontSize: 14, fontWeight: 500 }}
+          fill="#000"
+          style={{
+            textAlign: "center",
+            fontFamily: "Inter",
+            fontSize: "1rem",
+            fontStyle: "normal",
+            fontWeight: 400,
+            lineHeight: "normal",
+          }}
         >
           {mainLabel}
         </text>
