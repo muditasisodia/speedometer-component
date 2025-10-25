@@ -40,7 +40,7 @@ export default function SpeedometerV2({
   const outerRadius = Math.min(centerX, centerY) - 10; // keep outer edge fixed
   const radius = outerRadius - trackStroke / 2; // centerline shifted inward so thickness adds inside
   // White backdrop radius (reduced by 20px to reveal more needle)
-  const innerFillRadius = Math.max(0, radius - trackStroke / 2 - 2 - 20);
+  const innerFillRadius = Math.max(0, radius - trackStroke / 2 - 2 - 12);
 
   const clampedStart = useMemo(() => clampPercentage(startValue), [startValue]);
   const clampedEnd = useMemo(() => clampPercentage(endValue), [endValue]);
@@ -163,12 +163,14 @@ export default function SpeedometerV2({
   const angle = mapPercentToAngle(displayPercent);
   const progressPercent = clampPercentage(displayPercent);
 
-  // Arc path (semi-circle)
-  const startX = centerX - radius;
+  // Arc path (semi-circle) — bring closer to number by reducing radius ~8px
+  const arcInsetPx = 8;
+  const trackRadius = radius - arcInsetPx;
+  const startX = centerX - trackRadius;
   const startY = centerY;
-  const endX = centerX + radius;
+  const endX = centerX + trackRadius;
   const endY = centerY;
-  const arcPath = `M ${startX} ${startY} A ${radius} ${radius} 0 0 1 ${endX} ${endY}`;
+  const arcPath = `M ${startX} ${startY} A ${trackRadius} ${trackRadius} 0 0 1 ${endX} ${endY}`;
   // Inner white semicircle path (filled)
   const innerStartX = centerX - innerFillRadius;
   const innerEndX = centerX + innerFillRadius;
@@ -183,6 +185,7 @@ export default function SpeedometerV2({
   const gradientId = useId();
   const textGradientId = useId();
   const conicMaskId = useId();
+  const innerRadialId = useId();
 
   // Runtime feature detect for CSS conic-gradient support (fallback to SVG stroke if unsupported)
   const supportsConic = useMemo(() => {
@@ -234,6 +237,13 @@ export default function SpeedometerV2({
             <stop offset="100%" stopColor="#808080" />
           </linearGradient>
 
+          {/* Radial gradient for inner semicircle fade (opaque center -> transparent edge) */}
+          <radialGradient id={innerRadialId} gradientUnits="userSpaceOnUse" cx={centerX} cy={centerY} r={innerFillRadius}>
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
+            <stop offset="75%" stopColor="#ffffff" stopOpacity="1" />
+            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+          </radialGradient>
+
           {/* Mask that reveals only the current progress arc with the same thickness */}
           <mask id={conicMaskId} maskUnits="userSpaceOnUse" x="0" y="0" width={width} height={height}>
             <path
@@ -284,8 +294,8 @@ export default function SpeedometerV2({
                   // Conic gradient aligned to sweep across the top semi-circle (left -> right)
                   backgroundImage:
                     type === "free"
-                      ? `conic-gradient(from 270deg, #F1FAFF 0deg, #00B3F4 90deg, #2944EF 180deg)`
-                      : `conic-gradient(from 270deg, #D0EEEA 0deg, #30B7A4 108deg, #006166 180deg)`,
+                      ? `conic-gradient(from 270deg,rgb(222, 239, 248) 0deg, #00B3F4 90deg, #2944EF 180deg)`
+                      : `conic-gradient(from 270deg,rgb(210, 244, 239) 0deg,rgb(86, 193, 168) 108deg,rgb(0, 123, 10) 180deg)`,
                 }}
               />
             </div>
@@ -327,7 +337,7 @@ export default function SpeedometerV2({
           />
         </g>
         {/* Inner white semicircle above needle, below hub/text */}
-        <path d={innerSemiPath} fill="#ffffff" />
+        <path d={innerSemiPath} fill={`url(#${innerRadialId})`} />
         {/* White rectangle below semicircle (above needle) */}
         <rect
           x={innerStartX}
