@@ -23,6 +23,79 @@ const mapPercentToAngle = (percent: number, halfSweepDeg: number = 90): number =
   return -halfSweepDeg + (percent * (2 * halfSweepDeg)) / 100;
 };
 
+// (Unused) Centered wedge builder kept for reference; prefer the angle-based variant below
+// const buildRingWedgePath = (
+//   cx: number,
+//   cy: number,
+//   innerR: number,
+//   outerR: number,
+//   halfAngleDeg: number
+// ): string => {
+//   const a0 = (-halfAngleDeg * Math.PI) / 180; // start angle (left side)
+//   const a1 = (halfAngleDeg * Math.PI) / 180; // end angle (right side)
+//   const sin0 = Math.sin(a0);
+//   const cos0 = Math.cos(a0);
+//   const sin1 = Math.sin(a1);
+//   const cos1 = Math.cos(a1);
+//   const xo0 = cx + outerR * sin0;
+//   const yo0 = cy - outerR * cos0;
+//   const xo1 = cx + outerR * sin1;
+//   const yo1 = cy - outerR * cos1;
+//   const xi1 = cx + innerR * sin1;
+//   const yi1 = cy - innerR * cos1;
+//   const xi0 = cx + innerR * sin0;
+//   const yi0 = cy - innerR * cos0;
+//   const large = 0;
+//   const sweepOuter = 1;
+//   const sweepInner = 0;
+//   return [
+//     `M ${xo0} ${yo0}`,
+//     `A ${outerR} ${outerR} 0 ${large} ${sweepOuter} ${xo1} ${yo1}`,
+//     `L ${xi1} ${yi1}`,
+//     `A ${innerR} ${innerR} 0 ${large} ${sweepInner} ${xi0} ${yi0}`,
+//     'Z',
+//   ].join(' ');
+// };
+
+// General version: build a ring wedge between explicit angles (degrees)
+const buildRingWedgePathFromAngles = (
+  cx: number,
+  cy: number,
+  innerR: number,
+  outerR: number,
+  startDeg: number,
+  endDeg: number
+): string => {
+  const a0 = (startDeg * Math.PI) / 180;
+  const a1 = (endDeg * Math.PI) / 180;
+  const sin0 = Math.sin(a0);
+  const cos0 = Math.cos(a0);
+  const sin1 = Math.sin(a1);
+  const cos1 = Math.cos(a1);
+
+  const xo0 = cx + outerR * sin0;
+  const yo0 = cy - outerR * cos0;
+  const xo1 = cx + outerR * sin1;
+  const yo1 = cy - outerR * cos1;
+
+  const xi1 = cx + innerR * sin1;
+  const yi1 = cy - innerR * cos1;
+  const xi0 = cx + innerR * sin0;
+  const yi0 = cy - innerR * cos0;
+
+  const large = Math.abs(endDeg - startDeg) > 180 ? 1 : 0;
+  const sweepOuter = endDeg >= startDeg ? 1 : 0; // draw from start -> end along increasing angle
+  const sweepInner = 1 - sweepOuter; // return opposite way
+
+  return [
+    `M ${xo0} ${yo0}`,
+    `A ${outerR} ${outerR} 0 ${large} ${sweepOuter} ${xo1} ${yo1}`,
+    `L ${xi1} ${yi1}`,
+    `A ${innerR} ${innerR} 0 ${large} ${sweepInner} ${xi0} ${yi0}`,
+    'Z',
+  ].join(' ');
+};
+
 export default function SpeedometerV2({
   startValue,
   endValue,
@@ -264,6 +337,12 @@ export default function SpeedometerV2({
             <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
           </radialGradient>
 
+          {/* Needle cap gradient: flipped direction (transparent -> black along tangent) */}
+          <linearGradient id="needleCapGrad" x1="0%" y1="50%" x2="100%" y2="50%">
+            <stop offset="0%" stopColor="#000000" stopOpacity="0" />
+            <stop offset="100%" stopColor="#000000" stopOpacity="1" />
+          </linearGradient>
+
           {/* Mask that reveals only the current progress arc with the same thickness */}
           <mask id={conicMaskId} maskUnits="userSpaceOnUse" x="0" y="0" width={width} height={height}>
             <path
@@ -359,6 +438,26 @@ export default function SpeedometerV2({
             strokeWidth={3}
             strokeLinecap="round"
           />
+          {(() => {
+            // Align RIGHT edge of wedge to the needle (0°). Wedge spans from -capWidthDeg to 0°.
+            const radialOffset = 20; // keep current outward shift
+            const radialThickness = trackStroke * 0.3; // slimmer band
+            const capCenterR = trackRadius + radialOffset;
+            const capInnerR = capCenterR - radialThickness / 2;
+            const capOuterR = capCenterR + radialThickness / 2;
+            const capWidthDeg = 6.4; // total angular width of wedge
+            const startDeg = -capWidthDeg; // left edge
+            const endDeg = 0.65; // right edge aligned with needle
+            const d = buildRingWedgePathFromAngles(
+              centerX,
+              centerY,
+              capInnerR,
+              capOuterR,
+              startDeg,
+              endDeg
+            );
+            return <path d={d} fill="url(#needleCapGrad)" pointerEvents="none" />;
+          })()}
         </g>
         {/* Inner white semicircle above needle, below hub/text */}
         <path d={innerSemiPath} fill={`url(#${innerRadialId})`} />
