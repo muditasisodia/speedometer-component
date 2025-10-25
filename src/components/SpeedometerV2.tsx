@@ -36,7 +36,7 @@ export default function SpeedometerV2({
   const baseHeight = 180;
   const centerX = width / 2;
   const trackStroke = 14 * 1.5; // thicker arc paths (1.5x), grows inward
-  const arcInsetPx = 8; // used for track centerline inset
+  const arcInsetPx = 16; // used for track centerline inset
 
   // Droop configuration: how far each end dips below the horizontal
   const droopDeg = 14;
@@ -196,12 +196,11 @@ export default function SpeedometerV2({
   const innerStartX = centerX - innerFillRadius;
   const innerEndX = centerX + innerFillRadius;
   const innerSemiPath = `M ${innerStartX} ${centerY} A ${innerFillRadius} ${innerFillRadius} 0 0 1 ${innerEndX} ${centerY} L ${centerX} ${centerY} Z`;
-  const innerRectWidth = innerEndX - innerStartX;
   const innerRectHeight = 8;
 
   // Needle geometry (center-anchored line with hub)
-  const needleOvershoot = 9; // ~8px more than before so it sticks out
-  const needleLength = radius + trackStroke / 2 + needleOvershoot; // extend past the arc edge
+  const needleOvershootBeyondArc = 6; // 8px shorter than before
+  const needleLength = (radius - arcInsetPx) + trackStroke / 2 + needleOvershootBeyondArc; // measure from arc centerline
 
   const gradientId = useId();
   const textGradientId = useId();
@@ -254,14 +253,14 @@ export default function SpeedometerV2({
           {/* Vertical gradient for big percentage text (black to gray) */}
           <linearGradient id={textGradientId} x1="0%" y1="0%" x2="0%" y2="100%">
             <stop offset="0%" stopColor="#000000" />
-            <stop offset="86.36%" stopColor="#808080" />
+            <stop offset="90%" stopColor="#808080" />
             <stop offset="100%" stopColor="#808080" />
           </linearGradient>
 
           {/* Radial gradient for inner semicircle fade (opaque center -> transparent edge) */}
           <radialGradient id={innerRadialId} gradientUnits="userSpaceOnUse" cx={centerX} cy={centerY} r={innerFillRadius}>
             <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
-            <stop offset="75%" stopColor="#ffffff" stopOpacity="1" />
+            <stop offset="70%" stopColor="#ffffff" stopOpacity="1" />
             <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
           </radialGradient>
 
@@ -365,9 +364,9 @@ export default function SpeedometerV2({
         <path d={innerSemiPath} fill={`url(#${innerRadialId})`} />
         {/* White rectangle below semicircle (above needle) */}
         <rect
-          x={innerStartX}
+          x={centerX - 6}
           y={centerY}
-          width={innerRectWidth}
+          width={12}
           height={innerRectHeight}
           fill="#ffffff"
         />
@@ -377,7 +376,7 @@ export default function SpeedometerV2({
         {/* Big percentage number */}
         <text
           x={centerX}
-          y={centerY - radius * 0.35}
+          y={centerY - radius * 0.35 + 8}
           textAnchor="middle"
           dominantBaseline="central"
           fill={`url(#${textGradientId})`}
@@ -397,7 +396,7 @@ export default function SpeedometerV2({
         {/* Label(s) below the number */}
         <text
           x={centerX}
-          y={centerY - radius * 0.15 + 8}
+          y={centerY - radius * 0.15 + 16}
           textAnchor="middle"
           dominantBaseline="central"
           fill="#000"
