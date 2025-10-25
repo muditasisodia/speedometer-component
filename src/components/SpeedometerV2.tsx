@@ -18,9 +18,9 @@ const clampPercentage = (value: number): number => {
   return value;
 };
 
-const mapPercentToAngle = (percent: number): number => {
-  // Map 0..100 to -90..+90 degrees (semi-circle)
-  return -90 + (percent * 180) / 100;
+const mapPercentToAngle = (percent: number, halfSweepDeg: number = 90): number => {
+  // Map 0..100 to -halfSweep..+halfSweep degrees
+  return -halfSweepDeg + (percent * (2 * halfSweepDeg)) / 100;
 };
 
 export default function SpeedometerV2({
@@ -33,12 +33,25 @@ export default function SpeedometerV2({
 }: SpeedometerV2Props) {
   // Layout tuned to resemble the screenshot proportions
   const width = 300;
-  const height = 180;
+  const baseHeight = 180;
   const centerX = width / 2;
-  const centerY = height - 24; // padding for labels and bottom
   const trackStroke = 14 * 1.5; // thicker arc paths (1.5x), grows inward
-  const outerRadius = Math.min(centerX, centerY) - 10; // keep outer edge fixed
-  const radius = outerRadius - trackStroke / 2; // centerline shifted inward so thickness adds inside
+  const arcInsetPx = 8; // used for track centerline inset
+
+  // Droop configuration: how far each end dips below the horizontal
+  const droopDeg = 14;
+
+  // Estimate droop in pixels and expand height so arc isn't clipped
+  // Use width-limited radius so geometry remains stable regardless of height
+  const widthLimitedOuterRadius = centerX - 10;
+  const widthLimitedRadius = widthLimitedOuterRadius - trackStroke / 2;
+  const widthLimitedTrackRadius = widthLimitedRadius - arcInsetPx;
+  const droopRad = (droopDeg * Math.PI) / 180;
+  const droopExtraPx = Math.max(0, widthLimitedTrackRadius * Math.sin(droopRad));
+  const height = baseHeight + Math.ceil(droopExtraPx) + 2; // add space BELOW for droop
+  const centerY = baseHeight - 24; // keep visual anchor fixed; expand canvas downward
+  const outerRadius = widthLimitedOuterRadius; // keep outer edge fixed by width
+  const radius = widthLimitedRadius; // centerline shifted inward so thickness adds inside
   // White backdrop radius (reduced by 20px to reveal more needle)
   const innerFillRadius = Math.max(0, radius - trackStroke / 2 - 2 - 12);
 
@@ -160,17 +173,25 @@ export default function SpeedometerV2({
     setDisplayPercent(clampedEnd);
   }, [perpetual, clampedEnd]);
 
-  const angle = mapPercentToAngle(displayPercent);
+  // Extend arc beyond a perfect semicircle by drooping ends down a bit
+  const halfSweep = 90 + droopDeg; // total sweep = 180 + 2*droop
+  const sweepDeg = 2 * halfSweep; // convenience
+  const conicFromDeg = 180+droopDeg; // align 0deg with left-lower (drooped) endpoint in CSS coords
+
+  const angle = mapPercentToAngle(displayPercent, halfSweep);
   const progressPercent = clampPercentage(displayPercent);
 
-  // Arc path (semi-circle) — bring closer to number by reducing radius ~8px
-  const arcInsetPx = 8;
+  // Arc path with drooped ends — bring closer to number by reducing radius ~8px
   const trackRadius = radius - arcInsetPx;
-  const startX = centerX - trackRadius;
-  const startY = centerY;
-  const endX = centerX + trackRadius;
-  const endY = centerY;
-  const arcPath = `M ${startX} ${startY} A ${trackRadius} ${trackRadius} 0 0 1 ${endX} ${endY}`;
+  // Start/end points for a >180° arc (large-arc flag = 1) with drooped ends
+  const startAngleRad = ((180 - droopDeg) * Math.PI) / 180;
+  const endAngleRad = (droopDeg * Math.PI) / 180;
+  const startX = centerX + trackRadius * Math.cos(startAngleRad);
+  const startY = centerY + trackRadius * Math.sin(startAngleRad);
+  const endX = centerX + trackRadius * Math.cos(endAngleRad);
+  const endY = centerY + trackRadius * Math.sin(endAngleRad);
+  // Use large-arc (1) and sweep (1, CCW) to take the long way across the top
+  const arcPath = `M ${startX} ${startY} A ${trackRadius} ${trackRadius} 0 1 1 ${endX} ${endY}`;
   // Inner white semicircle path (filled)
   const innerStartX = centerX - innerFillRadius;
   const innerEndX = centerX + innerFillRadius;
@@ -291,11 +312,15 @@ export default function SpeedometerV2({
                   width: `${outerRadius * 2}px`,
                   height: `${outerRadius * 2}px`,
                   borderRadius: "50%",
-                  // Conic gradient aligned to sweep across the top semi-circle (left -> right)
+                  // Conic gradient aligned to sweep across the extended arc
                   backgroundImage:
-                    type === "free"
-                      ? `conic-gradient(from 270deg,rgb(222, 239, 248) 0deg, #00B3F4 90deg, #2944EF 180deg)`
-                      : `conic-gradient(from 270deg,rgb(210, 244, 239) 0deg,rgb(86, 193, 168) 108deg,rgb(0, 123, 10) 180deg)`,
+                    (() => {
+                      const mid = sweepDeg / 2;
+                      if (type === "free") {
+                        return `conic-gradient(from ${conicFromDeg}deg, #F1FAFF ${90-droopDeg*2}deg,rgb(84, 210, 255) ${mid}deg, #1378FB ${sweepDeg+90+droopDeg}deg)`;
+                      }
+                      return `conic-gradient(from ${conicFromDeg}deg,rgb(204, 232, 228) ${90-droopDeg*2}deg,rgb(138, 214, 196) ${mid}deg,rgb(0, 123, 10) ${sweepDeg+90+droopDeg}deg)`;
+                    })(),
                 }}
               />
             </div>

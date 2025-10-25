@@ -21,7 +21,7 @@ function App() {
 
         <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
           <div style={{ marginBottom: 8, fontWeight: 600 }}>Free • Perpetual (30 ↔ 70)</div>
-          <SpeedometerV2 startValue={30} endValue={70} type="free" perpetual={true} label="Your score" subLabel="" />
+          <SpeedometerV2 startValue={80} endValue={90} type="free" perpetual={true} label="Your score" subLabel="" />
         </div>
 
         <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
