@@ -129,7 +129,7 @@ export default function SpeedometerV2({
     const max = Math.max(clampedStart, clampedEnd);
     const center = (min + max) / 2;
     const amplitude = (max - min) / 2;
-    const periodMs = 2600;
+    const periodMs = 5200;
 
     let startTs = performance.now();
     const tick = () => {
@@ -182,6 +182,18 @@ export default function SpeedometerV2({
 
   const gradientId = useId();
   const textGradientId = useId();
+  const conicMaskId = useId();
+
+  // Runtime feature detect for CSS conic-gradient support (fallback to SVG stroke if unsupported)
+  const supportsConic = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      // Using background-image ensures broad engines check the right feature
+      return (window as any).CSS?.supports?.("background-image", "conic-gradient(#000, #fff)") ?? false;
+    } catch {
+      return false;
+    }
+  }, []);
 
   const percentText = `${Math.round(progressPercent)}%`;
   const mainLabel = label ?? (type === "pro" ? "Most Pro users" : "Your score");
@@ -221,6 +233,23 @@ export default function SpeedometerV2({
             <stop offset="86.36%" stopColor="#808080" />
             <stop offset="100%" stopColor="#808080" />
           </linearGradient>
+
+          {/* Mask that reveals only the current progress arc with the same thickness */}
+          <mask id={conicMaskId} maskUnits="userSpaceOnUse" x="0" y="0" width={width} height={height}>
+            <path
+              d={arcPath}
+              fill="none"
+              stroke="#ffffff"
+              strokeWidth={trackStroke}
+              strokeLinecap="butt"
+              pathLength={100}
+              style={{
+                transition: !perpetual && !isAnimating ? "stroke-dasharray 600ms ease-in-out" : undefined,
+                strokeDasharray: `${progressPercent} ${100}`,
+                strokeDashoffset: 0,
+              }}
+            />
+          </mask>
         </defs>
 
         {/* Background arc (light gray) */}
@@ -233,20 +262,49 @@ export default function SpeedometerV2({
           pathLength={100}
         />
 
-        {/* Progress arc with gradient following the needle */}
-        <path
-          d={arcPath}
-          fill="none"
-          stroke={`url(#${gradientId})`}
-          strokeWidth={trackStroke}
-          strokeLinecap="butt"
-          pathLength={100}
-          style={{
-            transition: !perpetual && !isAnimating ? "stroke-dasharray 600ms ease-in-out" : undefined,
-            strokeDasharray: `${progressPercent} ${100}`,
-            strokeDashoffset: 0,
-          }}
-        />
+        {/* Progress arc: use CSS conic gradient overlay when supported, otherwise fallback to SVG gradient stroke */}
+        {supportsConic ? (
+          <foreignObject x={0} y={0} width={width} height={height} mask={`url(#${conicMaskId})`} pointerEvents="none">
+            <div
+              style={{
+                position: "relative",
+                width: `${width}px`,
+                height: `${height}px`,
+              }}
+            >
+              {/* Centered square covering the circle area so the sweep centers at the gauge center */}
+              <div
+                style={{
+                  position: "absolute",
+                  left: `${centerX - outerRadius}px`,
+                  top: `${centerY - outerRadius}px`,
+                  width: `${outerRadius * 2}px`,
+                  height: `${outerRadius * 2}px`,
+                  borderRadius: "50%",
+                  // Conic gradient aligned to sweep across the top semi-circle (left -> right)
+                  backgroundImage:
+                    type === "free"
+                      ? `conic-gradient(from 270deg, #F1FAFF 0deg, #00B3F4 90deg, #2944EF 180deg)`
+                      : `conic-gradient(from 270deg, #D0EEEA 0deg, #30B7A4 108deg, #006166 180deg)`,
+                }}
+              />
+            </div>
+          </foreignObject>
+        ) : (
+          <path
+            d={arcPath}
+            fill="none"
+            stroke={`url(#${gradientId})`}
+            strokeWidth={trackStroke}
+            strokeLinecap="butt"
+            pathLength={100}
+            style={{
+              transition: !perpetual && !isAnimating ? "stroke-dasharray 600ms ease-in-out" : undefined,
+              strokeDasharray: `${progressPercent} ${100}`,
+              strokeDashoffset: 0,
+            }}
+          />
+        )}
 
         
 
